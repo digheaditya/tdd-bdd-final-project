@@ -27,7 +27,7 @@ import os
 import logging
 import unittest
 from decimal import Decimal
-from service.models import Product, Category, db
+from service.models import Product, Category, db, DataValidationError
 from service import app
 from tests.factories import ProductFactory
 
@@ -192,3 +192,37 @@ class TestProductModel(unittest.TestCase):
         self.assertEqual(found.count(), count)
         for product in found:
             self.assertEqual(product.category, category)
+
+    def test_find_by_price_with_decimal(self):
+        """It should Find Products by Price using Decimal"""
+        product = ProductFactory(price=Decimal("19.99"))
+        product.create()
+        found = Product.find_by_price(Decimal("19.99"))
+        self.assertEqual(found.count(), 1)
+        self.assertEqual(found.first().price, Decimal("19.99"))
+
+    def test_deserialize_invalid_available_type(self):
+        """It should raise error when available is not a bool"""
+        data = {
+            "name": "Box",
+            "description": "Cardboard box",
+            "price": "3.50",
+            "available": "yes",  # Invalid type
+            "category": "HOUSEWARES"
+        }
+        product = Product()
+        with self.assertRaises(DataValidationError):
+            product.deserialize(data)
+
+    def test_deserialize_invalid_category(self):
+        """It should raise error for invalid category"""
+        data = {
+            "name": "Box",
+            "description": "Cardboard box",
+            "price": "3.50",
+            "available": True,
+            "category": "INVALID"  # Not a real enum
+        }
+        product = Product()
+        with self.assertRaises(DataValidationError):
+            product.deserialize(data)
